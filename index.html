@@ -2,8 +2,95 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0;url=实验组对标相关文件/control.html">
-    <title>深渊呼吸</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>钢铁帷幕</title>
+    <link rel="stylesheet" href="实验组对标相关文件/style.css?v=20260218_1">
 </head>
-<body></body>
+<body>
+    <div id="game-container">
+        <div id="video-layer" class="layer">
+            <video id="game-video" playsinline webkit-playsinline></video>
+        </div>
+
+        <div id="background-layer" class="layer">
+            <img id="background-image" src="" alt="">
+            <div id="water-overlay"></div>
+        </div>
+
+        <div id="character-layer" class="layer">
+            <img id="character-left" class="character" src="" alt="">
+            <img id="character-right" class="character" src="" alt="">
+        </div>
+
+        <div id="ui-layer" class="layer">
+            <div id="chapter-title" class="chapter-title hidden">
+                <div class="chapter-text"></div>
+            </div>
+
+            <div id="dialogue-box" class="dialogue-box hidden">
+                <div class="speaker-name"></div>
+                <div class="dialogue-text"></div>
+                <div class="continue-indicator">▼</div>
+            </div>
+
+            <div id="choice-container" class="choice-container hidden"></div>
+
+            <div id="interaction-button" class="interaction-button hidden">
+                <button id="interact-btn"></button>
+            </div>
+
+            <div id="oxygen-slider-container" class="oxygen-slider-container hidden">
+                <div class="slider-title">输氧控制系统</div>
+                <div class="slider-subtitle">调整输氧比例 | 达到阈值可救活对方</div>
+                <div class="slider-wrapper">
+                    <input type="range" id="oxygen-slider" min="0" max="50" value="0" step="1">
+                    <div class="slider-value">
+                        <span id="slider-current-value">0</span>%
+                    </div>
+                </div>
+                <div class="oxygen-status">
+                    <div class="status-left">
+                        <div class="status-label">你的氧气剩余时长</div>
+                        <div id="player-oxygen" class="status-value">70分钟</div>
+                        <div id="player-status" class="status-condition green">本机状态：正常</div>
+                    </div>
+                    <div class="status-right">
+                        <div class="status-label">黑鲨氧气输入</div>
+                        <div id="target-oxygen" class="status-value">0%</div>
+                        <div id="target-status" class="status-condition red">目标状态：濒死</div>
+                    </div>
+                </div>
+                <button id="confirm-oxygen" class="confirm-button">确认执行</button>
+            </div>
+
+            <div id="loading" class="loading hidden">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">加载中...</div>
+            </div>
+
+            <div id="hint-text" class="hint-text hidden"></div>
+
+            <div id="image-popup" class="image-popup hidden">
+                <img id="popup-image" src="" alt="">
+            </div>
+
+            <div id="swipe-hint" class="swipe-hint hidden">
+                <div class="swipe-text">滑动转动视角</div>
+                <div class="swipe-arrows">
+                    <span class="arrow-left">←</span>
+                    <span class="arrow-right">→</span>
+                </div>
+                <div class="swipe-track"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-data" style="display:none;">
+        <input type="hidden" id="session-id" value="">
+        <input type="hidden" id="group-type" value="对照组">
+        <input type="hidden" id="start-time" value="">
+    </div>
+
+    <script src="实验组对标相关文件/control.js?v=20260218_1"></script>
+</body>
 </html>
