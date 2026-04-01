@@ -652,7 +652,8 @@ function prologueScene3() {
     
     showSwipeHint(() => {
         playVideo(`${ASSET_BASE}/对照组-序章/对照组-序章-场景3/医护人员按住.mp4`, () => {
-            showBackground(`${ASSET_BASE}/对照组-序章/对照组-序章-场景3/医护人员按住.png`);
+            // 静帧图在场景2目录（场景3仅有 mp4，无同名 png，否则会 404 裂图）
+            showBackground(`${ASSET_BASE}/对照组-序章/对照组-序章-场景2/医护人员按住.png`);
             showHintText('你被医护人员按住了', 2000);
             
             setTimeout(() => {
