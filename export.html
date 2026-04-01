@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>实验数据导出</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Noto Sans SC', -apple-system, sans-serif; background: #0a0e13; color: #ccc; padding: 20px; min-height: 100vh; }
+h1 { text-align: center; color: #00ffff; margin-bottom: 8px; font-size: 1.4rem; }
+.subtitle { text-align: center; color: #666; font-size: 0.85rem; margin-bottom: 24px; }
+.stats { text-align: center; color: #888; margin-bottom: 16px; font-size: 0.9rem; }
+.stats span { color: #00ffff; font-weight: bold; }
+.source-tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.75rem; margin-left: 8px; }
+.source-cloud { background: #00ffff22; color: #00ffff; border: 1px solid #00ffff44; }
+.source-local { background: #ffaa0022; color: #ffaa00; border: 1px solid #ffaa0044; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.9rem; }
+th { background: #1a2030; color: #00ffff; padding: 10px 8px; text-align: left; border-bottom: 2px solid #00ffff33; white-space: nowrap; }
+td { padding: 10px 8px; border-bottom: 1px solid #1a2030; }
+tr:hover td { background: #111822; }
+.btn-row { text-align: center; margin-bottom: 20px; }
+button { background: rgba(15,20,25,0.9); border: 2px solid #00ffff; color: #00ffff; font-size: 0.95rem; padding: 10px 24px; cursor: pointer; font-family: inherit; margin: 0 6px 8px; }
+button:hover { background: #00ffff22; }
+button.danger { border-color: #ff4444; color: #ff4444; }
+button.danger:hover { background: #ff444422; }
+.empty { text-align: center; color: #555; margin-top: 60px; font-size: 1.1rem; }
+.loading { text-align: center; color: #888; margin-top: 40px; }
+</style>
+</head>
+<body>
+<h1>钢铁帷幕 — 实验数据</h1>
+<p class="subtitle">此页面仅供研究者使用，游戏中无入口</p>
+<div class="stats" id="stats"></div>
+<div class="btn-row">
+  <button onclick="downloadCSV()">下载 CSV</button>
+  <button onclick="copyAll()">复制全部数据</button>
+  <button onclick="loadData()">刷新数据</button>
+  <button class="danger" onclick="clearLocal()">清空本机缓存</button>
+</div>
+<div id="content"><div class="loading">加载中...</div></div>
+
+<script>
+var currentData = [];
+var dataSource = '';
+
+function getLocalData() {
+  return JSON.parse(localStorage.getItem('abyssBreathDataCtrl') || '[]');
+}
+
+function loadData() {
+  document.getElementById('content').innerHTML = '<div class="loading">正在从云端加载...</div>';
+  fetch('/api/export-data?group=ctrl')
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.records && res.records.length > 0) {
+        currentData = res.records;
+        dataSource = 'cloud';
+        render();
+      } else {
+        fallbackToLocal();
+      }
+    })
+    .catch(function() {
+      fallbackToLocal();
+    });
+}
+
+function fallbackToLocal() {
+  currentData = getLocalData();
+  dataSource = 'local';
+  render();
+}
+
+function render() {
+  var statsEl = document.getElementById('stats');
+  var contentEl = document.getElementById('content');
+  var tag = dataSource === 'cloud'
+    ? '<span class="source-tag source-cloud">云端数据</span>'
+    : '<span class="source-tag source-local">本机缓存</span>';
+
+  statsEl.innerHTML = '共 <span>' + currentData.length + '</span> 条记录 ' + tag;
+
+  if (currentData.length === 0) {
+    contentEl.innerHTML = '<div class="empty">暂无数据</div>';
+    return;
+  }
+
+  var html = '<table><thead><tr><th>#</th><th>实验编号</th><th>氧气数值</th><th>游戏结局</th><th>时间</th></tr></thead><tbody>';
+  for (var i = 0; i < currentData.length; i++) {
+    var d = currentData[i];
+    var t = d.timestamp ? new Date(d.timestamp).toLocaleString('zh-CN') : '-';
+    html += '<tr><td>' + (i + 1) + '</td><td>' + (d.participantId || '-') + '</td><td>' + (d.oxygenValue != null ? d.oxygenValue : '-') + '</td><td>' + (d.ending || '-') + '</td><td>' + t + '</td></tr>';
+  }
+  html += '</tbody></table>';
+  contentEl.innerHTML = html;
+}
+
+function toCSV(data) {
+  var csv = '\uFEFF实验编号,氧气数值,游戏结局,时间\n';
+  for (var i = 0; i < data.length; i++) {
+    var d = data[i];
+    csv += '"' + (d.participantId || '') + '",' + (d.oxygenValue != null ? d.oxygenValue : '') + ',"' + (d.ending || '') + '","' + (d.timestamp || '') + '"\n';
+  }
+  return csv;
+}
+
+function downloadCSV() {
+  if (currentData.length === 0) { alert('没有数据可导出'); return; }
+  var blob = new Blob([toCSV(currentData)], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = '钢铁帷幕_实验数据_' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function copyAll() {
+  if (currentData.length === 0) { alert('没有数据'); return; }
+  var text = '实验编号\t氧气数值\t游戏结局\t时间\n';
+  for (var i = 0; i < currentData.length; i++) {
+    var d = currentData[i];
+    text += (d.participantId || '') + '\t' + (d.oxygenValue != null ? d.oxygenValue : '') + '\t' + (d.ending || '') + '\t' + (d.timestamp || '') + '\n';
+  }
+  navigator.clipboard.writeText(text).then(function() {
+    alert('已复制到剪贴板，可直接粘贴到 Excel');
+  }).catch(function() {
+    prompt('请手动复制：', text);
+  });
+}
+
+function clearLocal() {
+  if (!confirm('确定清空本机缓存？（不影响云端数据）')) return;
+  localStorage.removeItem('abyssBreathDataCtrl');
+  if (dataSource === 'local') { currentData = []; render(); }
+}
+
+loadData();
+</script>
+</body>
+</html>

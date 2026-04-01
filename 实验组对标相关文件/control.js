@@ -1,9 +1,13 @@
 // 深渊呼吸 - 对照组版本（同壳换内容）
 console.log('=== 对照组脚本加载 ===');
-console.log('BUILD:', '2026-02-23 control');
+console.log('BUILD:', '2026-04-01 control-v2');
 
 // 对照组素材根目录（control.html 在 实验组对标相关文件/ 下）
-const ASSET_BASE = '../对照组-游戏素材';
+const ASSET_BASE = window.location.pathname.includes('实验组对标相关文件')
+    ? '../对照组-游戏素材'
+    : '对照组-游戏素材';
+const LOCAL_STORAGE_KEY = 'abyssBreathDataCtrl';
+const SURVEY_URL = 'https://v.wjx.cn/vm/r7qL0UF.aspx';
 
 // 游戏数据收集（字段结构必须与实验组一致）
 const gameData = {
@@ -109,6 +113,92 @@ function startGame() {
     playScene('prologue_1');
 }
 
+function hideChoiceContainer(onDone) {
+    elements.choiceContainer.classList.remove('active');
+    setTimeout(() => {
+        elements.choiceContainer.classList.add('hidden');
+        if (onDone) onDone();
+    }, 300);
+}
+
+function saveRecordToLocal(record) {
+    try {
+        const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+        const list = raw ? JSON.parse(raw) : [];
+        list.push(record);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
+        return true;
+    } catch (e) {
+        console.error('本地记录失败:', e);
+        return false;
+    }
+}
+
+async function saveRecordToCloud(record) {
+    const response = await fetch('/api/save-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(record)
+    });
+    if (!response.ok) {
+        throw new Error('云端保存失败: ' + response.status);
+    }
+    return response.json();
+}
+
+function buildSubmitRecord(participantId) {
+    return {
+        participantId: participantId,
+        oxygenValue: gameData.oxygenValue,
+        ending: gameData.ending || '',
+        timestamp: new Date().toISOString(),
+        group: 'ctrl'
+    };
+}
+
+function renderParticipantSubmitForm() {
+    elements.hintText.classList.remove('hidden');
+    elements.hintText.innerHTML = `
+        <div class="participant-submit">
+            <div class="participant-title">请输入实验编号</div>
+            <input id="participant-id-input" class="participant-input" type="text" placeholder="例如：P001">
+            <button id="submit-participant-btn" class="confirm-button">提交并进入问卷</button>
+            <div id="participant-error" class="participant-error"></div>
+        </div>
+    `;
+    elements.hintText.style.fontSize = '';
+    elements.hintText.style.lineHeight = '';
+    elements.hintText.classList.add('active');
+
+    const input = document.getElementById('participant-id-input');
+    const submitBtn = document.getElementById('submit-participant-btn');
+    const errorBox = document.getElementById('participant-error');
+
+    submitBtn.onclick = async () => {
+        const participantId = (input.value || '').trim();
+        if (!participantId) {
+            errorBox.textContent = '请输入实验编号';
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = '提交中...';
+        errorBox.textContent = '';
+
+        const record = buildSubmitRecord(participantId);
+        saveRecordToLocal(record);
+
+        try {
+            await saveRecordToCloud(record);
+            console.log('云端记录成功');
+        } catch (e) {
+            console.warn('云端记录失败，已保留本地记录:', e);
+        } finally {
+            window.location.href = SURVEY_URL;
+        }
+    };
+}
+
 // 播放场景
 function playScene(sceneId) {
     console.log('播放场景:', sceneId);
@@ -168,41 +258,73 @@ function hideAllUI() {
 // 播放视频
 function playVideo(videoPath, onEnd) {
     console.log('播放视频:', videoPath);
-    
-    // 隐藏背景图，确保视频可见
-    elements.bgImage.classList.remove('active');
-    
-    elements.video.src = videoPath;
-    elements.video.classList.add('active');
-    
-    // 尝试播放视频
-    const playPromise = elements.video.play();
-    
-    if (playPromise !== undefined) {
-        playPromise
-            .then(() => {
-                console.log('✓ 视频播放成功');
-            })
-            .catch(error => {
-                console.error('✗ 视频播放失败:', error);
-                alert('视频播放失败，请检查素材文件：' + videoPath);
-                if (onEnd) onEnd();
-            });
+
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 1500;
+
+    function showRetryHint(attempt) {
+        elements.hintText.classList.remove('hidden');
+        elements.hintText.innerHTML = `视频加载中，请稍候… (${attempt}/${MAX_RETRIES})`;
+        elements.hintText.style.fontSize = '0.9rem';
+        elements.hintText.style.lineHeight = '2';
+        elements.hintText.classList.add('active');
     }
-    
-    elements.video.onended = () => {
-        console.log('视频播放结束');
-        elements.video.classList.remove('active');
-        if (onEnd) onEnd();
-    };
-    
-    // 添加错误处理
-    elements.video.onerror = () => {
-        console.error('✗ 视频加载错误:', videoPath);
-        elements.video.classList.remove('active');
-        alert('视频加载失败：' + videoPath + '\n请检查文件是否存在');
-        if (onEnd) onEnd();
-    };
+
+    function hideRetryHint() {
+        elements.hintText.classList.remove('active');
+        elements.hintText.classList.add('hidden');
+        elements.hintText.style.fontSize = '';
+        elements.hintText.style.lineHeight = '';
+    }
+
+    function attempt(retryCount) {
+        // 隐藏背景图，确保视频可见
+        elements.bgImage.classList.remove('active');
+
+        elements.video.src = videoPath;
+        elements.video.classList.add('active');
+
+        // 清理旧的事件，避免重复触发
+        elements.video.onended = null;
+        elements.video.onerror = null;
+
+        elements.video.onended = () => {
+            console.log('✓ 视频播放结束:', videoPath);
+            elements.video.classList.remove('active');
+            hideRetryHint();
+            if (onEnd) onEnd();
+        };
+
+        const handleFailure = (reason) => {
+            console.warn(`✗ 视频失败(第${retryCount}次):`, reason, videoPath);
+            elements.video.classList.remove('active');
+
+            if (retryCount < MAX_RETRIES) {
+                showRetryHint(retryCount);
+                setTimeout(() => attempt(retryCount + 1), RETRY_DELAY);
+            } else {
+                // 3 次全部失败：静默跳过，继续剧情，不弹框不强制刷新
+                console.error('✗ 视频重试耗尽，跳过继续剧情:', videoPath);
+                hideRetryHint();
+                if (onEnd) onEnd();
+            }
+        };
+
+        elements.video.onerror = () => handleFailure('加载错误');
+
+        const playPromise = elements.video.play();
+        if (playPromise !== undefined) {
+            playPromise
+                .then(() => {
+                    // 播放成功，清空提示
+                    hideRetryHint();
+                    console.log('✓ 视频播放成功:', videoPath);
+                })
+                .catch(err => handleFailure(err));
+        }
+    }
+
+    attempt(1);
 }
 
 // 显示背景
@@ -310,7 +432,7 @@ function showDialogue(speaker, text, onNext, speakerType = 'npc') {
 }
 
 // 显示选择
-function showChoices(choices) {
+function showChoices(choices, onBack) {
     elements.choiceContainer.classList.remove('hidden');
     elements.choiceContainer.innerHTML = '';
     
@@ -325,14 +447,26 @@ function showChoices(choices) {
                 timestamp: Date.now()
             });
             
-            elements.choiceContainer.classList.remove('active');
-            setTimeout(() => {
-                elements.choiceContainer.classList.add('hidden');
+            hideChoiceContainer(() => {
                 choice.action();
-            }, 300);
+            });
         };
         elements.choiceContainer.appendChild(button);
     });
+
+    const backButton = document.createElement('button');
+    backButton.className = 'choice-button back-button';
+    backButton.textContent = '↩ 返回上一步';
+    backButton.onclick = () => {
+        hideChoiceContainer(() => {
+            if (onBack) {
+                onBack();
+            } else {
+                playScene(currentScene);
+            }
+        });
+    };
+    elements.choiceContainer.appendChild(backButton);
     
     elements.choiceContainer.classList.add('active');
 }
@@ -562,7 +696,7 @@ function prologueScene3BranchB() {
 // 序章-场景4：手术完成
 function prologueScene4() {
     playVideo(`${ASSET_BASE}/对照组-序章/对照组-序章-场景4/手术完成.mp4`, () => {
-        showBackground(`${ASSET_BASE}/对照组-序章/对照组-序章-场景3/手术室背景.png`);
+        showBackground(`${ASSET_BASE}/对照组-序章/对照组-序章-场景2/手术室背景.png`);
         showInteractionButton('离开手术室', () => {
             showChapterTitle('第二章\n深渊前哨', 3000);
             setTimeout(() => playScene('chapter2_1'), 4000);
@@ -642,8 +776,8 @@ function chapter2Scene3() {
             {
                 text: 'A. [ 查看档案详情 ]',
                 action: () => {
-                    showImagePopup(`${ASSET_BASE}/对照组-第二章 /对照组-第二章-场景3/黑鲨档案.png`, () => {
-                        showHintText('屏幕上的红字刺痛了你的眼睛。\n100% 的报废率。\n在他身边的人，没有一个是活着回来的。\n但你别无选择。', 4000);
+                    showImagePopup(`${ASSET_BASE}/对照组-第二章 /对照组-第二章-场景3/黑鲨档案.jpg`, () => {
+                        showHintText('屏幕上的红字刺痛了你的眼睛。\n0% 的资源共享率。\n这意味着你可能需要独自面对危机。\n但你别无选择。', 4000);
                         setTimeout(() => playScene('chapter2_4'), 4500);
                     });
                 }
@@ -674,7 +808,7 @@ function chapter2Scene4() {
 
 // 第三章-场景1
 function chapter3Scene1() {
-    playVideo(`${ASSET_BASE}/对照组-第三章/对照组-第三章-场景1/潜艇下潜.mp4`, () => {
+    playVideo(`${ASSET_BASE}/对照组-第三章/对照组-第三章-场景1/潜艇下潜（新）.mp4`, () => {
         showBackground(`${ASSET_BASE}/对照组-第三章/对照组-第三章-场景1/雷达扫描图.png`);
         showHintText('"当前深度安全，\n适合常规开采。"', 2000);
         
@@ -818,6 +952,22 @@ function showOxygenSlider() {
     const targetOxygen = document.getElementById('target-oxygen');
     const targetStatus = document.getElementById('target-status');
     const confirmBtn = document.getElementById('confirm-oxygen');
+
+    let backBtn = document.getElementById('oxygen-back-button');
+    if (!backBtn) {
+        backBtn = document.createElement('button');
+        backBtn.id = 'oxygen-back-button';
+        backBtn.className = 'confirm-button back-button';
+        backBtn.textContent = '↩ 返回上一步';
+        confirmBtn.parentNode.insertBefore(backBtn, confirmBtn);
+    }
+    backBtn.onclick = function() {
+        elements.oxygenSlider.classList.remove('active');
+        setTimeout(() => {
+            elements.oxygenSlider.classList.add('hidden');
+            playScene('chapter4_2');
+        }, 300);
+    };
     
     // 滑块变化
     slider.oninput = function() {
@@ -862,7 +1012,8 @@ function showOxygenSlider() {
             if (finalValue < 30) {
                 playVideo(`${ASSET_BASE}/对照组-第四章/对照组-第四章-场景3/对照组-分支A.mp4`, () => {
                     gameData.ending = '结局A：被放弃';
-                    playScene('ending');
+                    hideAllUI();
+                    renderParticipantSubmitForm();
                 });
             } else {
                 showChapterTitle('第五章\n暴力破局', 3000);
@@ -961,11 +1112,7 @@ function playEndingVideo() {
     try {
         playVideo(endingVideoPath, () => {
             hideAllUI();
-            elements.hintText.classList.remove('hidden');
-            elements.hintText.innerHTML = '感谢您的参与';
-            elements.hintText.style.fontSize = '1.5rem';
-            elements.hintText.style.lineHeight = '1.8';
-            elements.hintText.classList.add('active');
+            renderParticipantSubmitForm();
             
             console.log('=== 游戏数据 ===');
             console.log('会话ID:', gameData.sessionId);
@@ -977,11 +1124,7 @@ function playEndingVideo() {
         });
     } catch (e) {
         console.error('结束语视频播放异常，降级为感谢参与:', e);
-        elements.hintText.classList.remove('hidden');
-        elements.hintText.innerHTML = '感谢您的参与';
-        elements.hintText.style.fontSize = '1.5rem';
-        elements.hintText.style.lineHeight = '1.8';
-        elements.hintText.classList.add('active');
+        renderParticipantSubmitForm();
     }
 }
 

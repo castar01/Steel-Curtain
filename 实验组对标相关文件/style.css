@@ -457,6 +457,25 @@ body {
     transform: translateX(3px);
 }
 
+/* 返回按钮（低强调，不抢主按钮） */
+.back-button {
+    border-color: #3a3a3a !important;
+    color: #9aa3a8 !important;
+    background: rgba(22, 26, 30, 0.88) !important;
+    box-shadow: none !important;
+}
+
+.back-button::before {
+    content: '' !important;
+}
+
+.back-button:hover {
+    border-color: #57636b !important;
+    color: #c8d0d4 !important;
+    background: rgba(30, 34, 40, 0.96) !important;
+    transform: translateY(0) !important;
+}
+
 /* 交互按钮 - 工业废土风格 */
 .interaction-button {
     position: absolute; /* 改为相对9:16容器定位 */
@@ -747,6 +766,40 @@ body {
 
 .hint-text.active {
     opacity: 1;
+}
+
+.participant-submit {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: stretch;
+}
+
+.participant-title {
+    font-size: 1.05rem;
+    color: #d2dbe0;
+    letter-spacing: 0.05em;
+}
+
+.participant-input {
+    width: 100%;
+    background: rgba(8, 12, 16, 0.92);
+    border: 1px solid #3a464c;
+    color: #d7e2e8;
+    font-size: 1rem;
+    padding: 12px 14px;
+    outline: none;
+}
+
+.participant-input:focus {
+    border-color: #00ffff;
+    box-shadow: 0 0 0 2px rgba(0, 255, 255, 0.18);
+}
+
+.participant-error {
+    min-height: 1.2em;
+    color: #ff6b6b;
+    font-size: 0.85rem;
 }
 
 /* 图片弹窗 */
