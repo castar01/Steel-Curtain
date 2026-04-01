@@ -6,7 +6,7 @@ console.log('BUILD:', '2026-04-01 control-v2');
 const ASSET_BASE = window.location.pathname.includes('实验组对标相关文件')
     ? '../对照组-游戏素材'
     : '对照组-游戏素材';
-const LOCAL_STORAGE_KEY = 'abyssBreathDataCtrl';
+const LOCAL_STORAGE_KEY = 'abyssBreathData_ctrl';
 const SURVEY_URL = 'https://v.wjx.cn/vm/r7qL0UF.aspx';
 
 // 游戏数据收集（字段结构必须与实验组一致）
@@ -138,7 +138,7 @@ async function saveRecordToCloud(record) {
     const response = await fetch('/api/save-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(record)
+        body: JSON.stringify(Object.assign({}, record, { group: 'ctrl' }))
     });
     if (!response.ok) {
         throw new Error('云端保存失败: ' + response.status);

@@ -44,7 +44,7 @@ var currentData = [];
 var dataSource = '';
 
 function getLocalData() {
-  return JSON.parse(localStorage.getItem('abyssBreathDataCtrl') || '[]');
+  return JSON.parse(localStorage.getItem('abyssBreathData_ctrl') || '[]');
 }
 
 function loadData() {
@@ -131,7 +131,7 @@ function copyAll() {
 
 function clearLocal() {
   if (!confirm('确定清空本机缓存？（不影响云端数据）')) return;
-  localStorage.removeItem('abyssBreathDataCtrl');
+  localStorage.removeItem('abyssBreathData_ctrl');
   if (dataSource === 'local') { currentData = []; render(); }
 }
 
