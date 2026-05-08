@@ -135,15 +135,20 @@ function saveRecordToLocal(record) {
 }
 
 async function saveRecordToCloud(record) {
+    const payload = JSON.stringify(Object.assign({}, record, { group: 'ctrl' }));
     const response = await fetch('/api/save-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(Object.assign({}, record, { group: 'ctrl' }))
+        body: payload,
+        keepalive: true
     });
+    console.log('云端保存响应状态:', response.status);
+    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
         throw new Error('云端保存失败: ' + response.status);
     }
-    return response.json();
+    console.log('云端保存结果:', data);
+    return data;
 }
 
 function buildSubmitRecord(participantId) {
@@ -182,20 +187,38 @@ function renderParticipantSubmitForm() {
         }
 
         submitBtn.disabled = true;
-        submitBtn.textContent = '提交中...';
+        submitBtn.textContent = '正在保存...';
         errorBox.textContent = '';
 
         const record = buildSubmitRecord(participantId);
         saveRecordToLocal(record);
+        console.log('开始提交云端数据:', record);
 
-        try {
-            await saveRecordToCloud(record);
-            console.log('云端记录成功');
-        } catch (e) {
-            console.warn('云端记录失败，已保留本地记录:', e);
-        } finally {
+        const payload = JSON.stringify(Object.assign({}, record, { group: 'ctrl' }));
+        let didJump = false;
+        function jumpToSurvey() {
+            if (didJump) return;
+            didJump = true;
             window.location.href = SURVEY_URL;
         }
+        const timer = setTimeout(jumpToSurvey, 6000);
+
+        fetch('/api/save-data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            keepalive: true
+        }).then(function(resp) {
+            console.log('云端保存响应状态:', resp.status);
+            return resp.json().catch(function() { return {}; });
+        }).then(function(data) {
+            console.log('云端保存结果:', data);
+        }).catch(function(err) {
+            console.warn('云端保存失败，数据已存本地:', err);
+        }).finally(function() {
+            clearTimeout(timer);
+            jumpToSurvey();
+        });
     };
 }
 
